@@ -34,40 +34,87 @@ async function fetchCertificates() {
 
     const drive = google.drive({ version: 'v3', auth });
 
-    try {
-        console.log(`📂 Buscando archivos en la carpeta ID: ${FOLDER_ID}...`);
+    const portfolioData = {
+        profileImage: '',
+        cvLink: '',
+        certificates: []
+    };
 
-        const res = await drive.files.list({
-            q: `'${FOLDER_ID}' in parents and trashed = false`,
-            fields: 'files(id, name, mimeType, webViewLink, webContentLink, thumbnailLink, createdTime)',
-            orderBy: 'createdTime desc',
-            pageSize: 100,
-        });
+    /**
+     * Recursively fetch files from a folder
+     * @param {string} folderId 
+     * @param {string} categoryName 
+     */
+    async function processFolder(folderId, categoryName = 'General') {
+        try {
+            console.log(`📂 Procesando carpeta: ${categoryName} (ID: ${folderId})...`);
 
-        const files = res.data.files || [];
+            const res = await drive.files.list({
+                q: `'${folderId}' in parents and trashed = false`,
+                fields: 'files(id, name, mimeType, webViewLink, webContentLink, thumbnailLink, createdTime)',
+                orderBy: 'createdTime desc',
+                pageSize: 100,
+            });
 
-        if (files.length === 0) {
-            console.log('⚠️ No se encontraron archivos en la carpeta.');
-        } else {
-            console.log(`✅ Se encontraron ${files.length} archivos.`);
+            const files = res.data.files || [];
+
+            for (const file of files) {
+                const nameLower = file.name.toLowerCase();
+
+                // 1. Detectar Carpetas (Categorías)
+                if (file.mimeType === 'application/vnd.google-apps.folder') {
+                    // Si encontramos una carpeta dentro de la raíz, su nombre será la categoría
+                    await processFolder(file.id, file.name);
+                }
+                // 2. Detectar CV
+                else if (nameLower.includes('cv') || nameLower.includes('curriculum') || nameLower.includes('resume')) {
+                    console.log(`📄 CV detectado: ${file.name}`);
+                    portfolioData.cvLink = file.webViewLink;
+                }
+                // 3. Detectar Foto de Perfil
+                else if (nameLower.includes('profile') || nameLower.includes('perfil')) { // Check specifically for image types if needed, but name check is usually enough
+                    if (file.mimeType.startsWith('image/')) {
+                        console.log(`👤 Foto de perfil detectada: ${file.name}`);
+                        // Usamos webContentLink para descargar/mostrar directamente si es posible, o thumbnailLink hackeado para alta resolución
+                        // Para drive, a veces webContentLink es mejor para <img> src si es público, pero thumbnailLink es más seguro con tokens.
+                        // Vamos a intentar usar una versión de alta resolución del thumbnailLink.
+                        if (file.thumbnailLink) {
+                            portfolioData.profileImage = file.thumbnailLink.replace('=s220', '=s1000'); // Tratar de pedir imagen grande
+                        } else {
+                            portfolioData.profileImage = file.webContentLink;
+                        }
+                    }
+                }
+                // 4. Es un certificado (archivo regular en carpeta o raíz)
+                else {
+                    portfolioData.certificates.push({
+                        ...file,
+                        category: categoryName
+                    });
+                }
+            }
+
+        } catch (error) {
+            console.error(`❌ Error procesando carpeta ${categoryName}:`, error.message);
         }
-
-        // Asegurar directorio de salida
-        const dir = path.dirname(OUTPUT_FILE);
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
-
-        fs.writeFileSync(OUTPUT_FILE, JSON.stringify(files, null, 2));
-        console.log(`💾 Datos guardados en ${OUTPUT_FILE}`);
-
-    } catch (error) {
-        console.error('❌ Error al obtener archivos de Drive:', error.message);
-        if (error.code === 404) {
-            console.error('   -> Posible causa: El ID de la carpeta es incorrecto o la Service Account no tiene permiso de acceso.');
-        }
-        process.exit(1);
     }
+
+    await processFolder(FOLDER_ID);
+
+    if (portfolioData.certificates.length === 0) {
+        console.log('⚠️ No se encontraron certificados.');
+    } else {
+        console.log(`✅ Se procesaron ${portfolioData.certificates.length} certificados.`);
+    }
+
+    // Asegurar directorio de salida
+    const dir = path.dirname(OUTPUT_FILE);
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+    }
+
+    fs.writeFileSync(OUTPUT_FILE, JSON.stringify(portfolioData, null, 2));
+    console.log(`💾 Datos guardados en ${OUTPUT_FILE}`);
 }
 
 fetchCertificates();

@@ -7,4 +7,11 @@ export interface Certificate {
     webContentLink?: string;
     thumbnailLink?: string;
     createdTime?: string;
+    category?: string;
+}
+
+export interface PortfolioData {
+    profileImage: string;
+    cvLink: string;
+    certificates: Certificate[];
 }
