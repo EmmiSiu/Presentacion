@@ -23,7 +23,7 @@ Asegúrate de que estás en la carpeta de tu proyecto.
 ## 2. Crear el Repositorio en GitHub
 
 1.  Ve a [github.com/new](https://github.com/new).
-2.  Nombre del repositorio: **Presentation** (Es importante que sea eL mismo nombre que configuramos en `vite.config.ts`).
+2.  Nombre del repositorio: **Presentacion** (Es importante que sea el mismo nombre que configuramos en `vite.config.ts`).
 3.  Déjalo como **Público**.
 4.  No marques ninguna casilla de inicialización (README, gitignore, license).
 5.  Haz clic en **Create repository**.
@@ -33,7 +33,7 @@ Asegúrate de que estás en la carpeta de tu proyecto.
 Copia los comandos que te da GitHub en la sección "...or push an existing repository from the command line". Deberían ser algo así (reemplaza `TU_USUARIO` con tu usuario de GitHub):
 
 ```bash
-git remote add origin https://github.com/TU_USUARIO/Presentation.git
+git remote add origin https://github.com/EmmiSiu/Presentacion.git
 git branch -M main
 git push -u origin main
 ```
